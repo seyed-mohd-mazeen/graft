@@ -59,10 +59,6 @@ Open a GitHub issue with:
 
 ## Security
 
-This tool runs Claude with write access to whatever repo you point it at, and
-the dashboard itself has no authentication — it's designed to run on
-`localhost` only. If you find a way it could be tricked into acting outside
-its intended worktree, or a way the dashboard could be reached or driven by
-someone other than the person running it, please open an issue (or, if it's
-sensitive, contact the maintainer directly first) rather than a public PR with
-exploit details.
+See [SECURITY.md](SECURITY.md) — this tool runs Claude with write access to
+your repos and has no auth of its own, so please report anything exploitable
+privately rather than in a public issue or PR.

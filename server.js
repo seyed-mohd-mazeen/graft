@@ -635,6 +635,17 @@ let server = null;
       `Graft running at http://localhost:${PORT} (bound to ${HOST})`,
     );
   });
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `\nPort ${PORT} is already in use — is another Graft instance (or something else) already running?\n` +
+          `Set PORT in your .env to use a different one.`,
+      );
+    } else {
+      console.error(`\nFailed to start: ${err.message}`);
+    }
+    process.exit(1);
+  });
 })();
 
 // Quitting the server used to leave orphaned `claude` processes still editing

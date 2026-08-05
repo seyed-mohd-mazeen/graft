@@ -1,48 +1,54 @@
 # Graft
 
-A local dashboard: see your assigned Jira tickets, pick one, and have Claude Code
-draft an implementation on a new branch — with live progress — using your existing
-Claude subscription (not API credits). Nothing is committed automatically; you
-review with `git diff` and open the result in VS Code when you're happy.
+Graft is a local dashboard: it shows the Jira tickets assigned to you, and for
+any of them, has Claude Code draft an implementation plan, wait for your
+approval, then implement it on its own branch — with live progress you can
+watch. Nothing is committed or pushed automatically; you review the diff and
+commit yourself when you're happy.
 
-This runs entirely on your machine. There's no cloud backend — the Node server
-just talks to Jira's API, your local git repo, and your local `claude` CLI.
+It runs entirely on your machine. There's no cloud backend and no separate
+service to deploy — the Node server on your laptop talks to Jira's API, your
+local git repo, and your local `claude` CLI, using your existing Claude
+subscription rather than API credits.
 
-## How runs are isolated
+![Graft's board — tickets grouped by what needs your attention](docs/screenshots/board-list.png)
 
-Each approved ticket is implemented in its own **git worktree** — a separate
-checkout of the same repository, on its own branch, sharing one `.git`:
+**Stack, for developers sizing up the code before diving in:** a Node.js +
+Express backend with no database (state is flat JSON under `data/`), and a
+frontend that's plain HTML/CSS/JS — no framework, no bundler, no build step.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout.
 
-```
-…/Projects/my-app/                          ← your checkout, never touched
-…/Projects/.ticket-runner-worktrees/my-app/
-    PROJ-101/   ← branch feature/you/PROJ-101
-    PROJ-142/   ← branch bugfix/you/PROJ-142
-```
+## Contents
 
-That means:
+- [How it works, in short](#how-it-works-in-short)
+- [One-time setup](#one-time-setup)
+- [Running it](#running-it)
+- [How runs are isolated](#how-runs-are-isolated)
+- [Notifications](#notifications-both-optional)
+- [Verification commands](#verification-commands)
+- [Important limitations, on purpose](#important-limitations-on-purpose)
+- [If the server is stopped mid-run](#if-the-server-is-stopped-mid-run)
+- [Updating](#updating-git-pull)
+- [Platform notes](#platform-notes)
+- [Contributing](#contributing)
+- [License](#license)
 
-- **Tickets run in parallel.** Two runs can't collide, and neither can move the
-  other's `HEAD` mid-run.
-- **Your working tree is left alone.** No `checkout`, no `pull`, and you stay on
-  whatever branch you were on with your own uncommitted work intact.
-- **Diffs are exact.** "Changes made" shows only that ticket's changes, and it's
-  computed against the base branch — so it stays correct after you stage or even
-  commit the work.
+## How it works, in short
 
-To review a run: open it in VS Code from the dashboard (that opens its worktree),
-or `cd` into the worktree and use git normally. Note that a branch checked out in
-a worktree can't be checked out again in your main clone — review it in the
-worktree, or remove the worktree first.
+1. **Pick a ticket** from your board — it's whatever's currently assigned to
+   you in Jira, grouped by what needs your attention.
+2. **Draft a plan.** Claude reads the codebase and writes up what it intends
+   to do — no files are touched yet.
+3. **You approve, edit, or discard it.** Nothing is written until you say go.
+4. **It implements the plan** in its own git worktree, on its own branch, so
+   it can never collide with another run or your own uncommitted work.
+5. **You review the diff** and commit it yourself — Graft never runs
+   `git commit` or `git push`.
 
-Worktrees are never deleted automatically. Settings → Worktrees lists them and
-flags any whose branch has already landed in the base branch as safe to remove;
-each finished run also has a **Remove worktree** button.
-
-**Dependencies:** a new worktree contains tracked files only, so `node_modules`
-is linked (junction/symlink) from your main checkout to make lint/test commands
-work immediately. If a ticket changes `package.json` or a lockfile, the run says
-so — install inside that worktree before trusting its test results.
+|                        |                         |                       |
+| :--------------------: | :---------------------: | :-------------------: |
+| ![Ticket](docs/screenshots/ticket-drawer.png) | ![Plan](docs/screenshots/plan-approval.png) | ![Diff](docs/screenshots/diff-review.png) |
+| Open a ticket, see its full description | Approve the plan before anything is written | Review a real diff when it's done |
 
 ## One-time setup
 
@@ -106,6 +112,44 @@ Then open http://localhost:4177 in your browser.
 - When it finishes, review the summary and diff, then **Open in VS Code** to
   inspect and commit yourself, or **Request changes** to iterate in the same
   Claude session.
+
+## How runs are isolated
+
+Each approved ticket is implemented in its own **git worktree** — a separate
+checkout of the same repository, on its own branch, sharing one `.git`:
+
+```
+…/Projects/my-app/                          ← your checkout, never touched
+…/Projects/.ticket-runner-worktrees/my-app/
+    PROJ-101/   ← branch feature/you/PROJ-101
+    PROJ-142/   ← branch bugfix/you/PROJ-142
+```
+
+![Worktrees page — one checkout per ticket, each on its own branch](docs/screenshots/worktrees.png)
+
+That means:
+
+- **Tickets run in parallel.** Two runs can't collide, and neither can move the
+  other's `HEAD` mid-run.
+- **Your working tree is left alone.** No `checkout`, no `pull`, and you stay on
+  whatever branch you were on with your own uncommitted work intact.
+- **Diffs are exact.** "Changes made" shows only that ticket's changes, and it's
+  computed against the base branch — so it stays correct after you stage or even
+  commit the work.
+
+To review a run: open it in VS Code from the dashboard (that opens its worktree),
+or `cd` into the worktree and use git normally. Note that a branch checked out in
+a worktree can't be checked out again in your main clone — review it in the
+worktree, or remove the worktree first.
+
+Worktrees are never deleted automatically. Settings → Worktrees lists them and
+flags any whose branch has already landed in the base branch as safe to remove;
+each finished run also has a **Remove worktree** button.
+
+**Dependencies:** a new worktree contains tracked files only, so `node_modules`
+is linked (junction/symlink) from your main checkout to make lint/test commands
+work immediately. If a ticket changes `package.json` or a lockfile, the run says
+so — install inside that worktree before trusting its test results.
 
 ## Notifications (both optional)
 
