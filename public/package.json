@@ -1,0 +1,4 @@
+{
+  "//": "Marks public/ as ES modules. The browser loads app.js via <script type=module>; this lets Node's test runner import the same pure modules (markdown.js, diff.js) as ESM without a .mjs rename.",
+  "type": "module"
+}

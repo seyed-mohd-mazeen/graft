@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Secrets & local config — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Runtime state written by the app: data/settings.json holds your Jira API
+# token, plus saved implementations and pending tasks. All machine-local.
+data/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Claude Code local settings (machine-specific permission allowlist)
+.claude/settings.json
+.claude/settings.local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.idea/
+*.swp
+*.swo

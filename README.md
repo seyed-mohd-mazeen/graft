@@ -1,0 +1,176 @@
+# Graft
+
+A local dashboard: see your assigned Jira tickets, pick one, and have Claude Code
+draft an implementation on a new branch — with live progress — using your existing
+Claude subscription (not API credits). Nothing is committed automatically; you
+review with `git diff` and open the result in VS Code when you're happy.
+
+This runs entirely on your machine. There's no cloud backend — the Node server
+just talks to Jira's API, your local git repo, and your local `claude` CLI.
+
+## How runs are isolated
+
+Each approved ticket is implemented in its own **git worktree** — a separate
+checkout of the same repository, on its own branch, sharing one `.git`:
+
+```
+…/Projects/my-app/                          ← your checkout, never touched
+…/Projects/.ticket-runner-worktrees/my-app/
+    PROJ-101/   ← branch feature/you/PROJ-101
+    PROJ-142/   ← branch bugfix/you/PROJ-142
+```
+
+That means:
+
+- **Tickets run in parallel.** Two runs can't collide, and neither can move the
+  other's `HEAD` mid-run.
+- **Your working tree is left alone.** No `checkout`, no `pull`, and you stay on
+  whatever branch you were on with your own uncommitted work intact.
+- **Diffs are exact.** "Changes made" shows only that ticket's changes, and it's
+  computed against the base branch — so it stays correct after you stage or even
+  commit the work.
+
+To review a run: open it in VS Code from the dashboard (that opens its worktree),
+or `cd` into the worktree and use git normally. Note that a branch checked out in
+a worktree can't be checked out again in your main clone — review it in the
+worktree, or remove the worktree first.
+
+Worktrees are never deleted automatically. Settings → Worktrees lists them and
+flags any whose branch has already landed in the base branch as safe to remove;
+each finished run also has a **Remove worktree** button.
+
+**Dependencies:** a new worktree contains tracked files only, so `node_modules`
+is linked (junction/symlink) from your main checkout to make lint/test commands
+work immediately. If a ticket changes `package.json` or a lockfile, the run says
+so — install inside that worktree before trusting its test results.
+
+## One-time setup
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Get a Jira API token:**
+   https://id.atlassian.com/manage-profile/security/api-tokens → Create API token
+
+3. **Configure:**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` and fill in:
+   - `JIRA_DOMAIN` — e.g. `yourcompany.atlassian.net`
+   - `JIRA_EMAIL` — your Jira login email
+   - `JIRA_API_TOKEN` — the token from step 2
+   - `REPO_PATH` — absolute path to your local git repo
+   - `BASE_BRANCH` — usually `main`
+
+4. **Make sure Claude Code is logged in via subscription, not an API key:**
+   ```bash
+   claude auth status
+   echo $ANTHROPIC_API_KEY   # should print nothing
+   ```
+   If `ANTHROPIC_API_KEY` is set anywhere in your shell config, remove it —
+   otherwise Claude Code will bill against API credits instead of your
+   subscription. The server will also print a warning at startup if it detects
+   this.
+
+5. **Make sure `code` (the VS Code CLI) is on your PATH:**
+   In VS Code, open the Command Palette (`Cmd/Ctrl+Shift+P`) → "Shell Command:
+   Install 'code' command in PATH".
+
+## Running it
+
+```bash
+npm start
+```
+
+The console prints a setup check on startup — anything wrong with your local
+setup (Claude CLI not on PATH, not logged in, git missing, no Jira token, no
+project selected) is listed there in plain language, with how to fix it. The
+same check lives in the dashboard: **Settings → Setup status**, re-checked
+automatically whenever you save something that could resolve it. If Jira or a
+project isn't configured yet, the Board page shows a banner pointing you there.
+
+Then open http://localhost:4177 in your browser.
+
+- The board lists tickets currently assigned to you (excludes Done/Closed).
+- Click one to see its full description, comments, and linked issues.
+- Click **Draft a plan**. Claude drafts an implementation plan and waits for
+  your approval; clicking **Approve & implement** creates the branch and
+  worktree and starts the run.
+- The progress view shows: elapsed time, current activity (what file Claude's
+  reading/editing, what command it's running), and a turn-count bar against the
+  turn budget (30 turns by default — set `maxTurns` / `planMaxTurns` in
+  `data/settings.json` to change it).
+- When it finishes, review the summary and diff, then **Open in VS Code** to
+  inspect and commit yourself, or **Request changes** to iterate in the same
+  Claude session.
+
+## Notifications (both optional)
+
+- **Desktop notifications** — browser/OS notification when a plan needs approval
+  or a run ends. Off until you grant permission in Settings.
+- **Telegram** — reaches you with the dashboard closed. Off by default: saving a
+  bot token does **not** start sending messages. Add the token and chat ID, use
+  **Send test message** to check them (this works while the feature is still
+  off), then tick **Send me Telegram notifications** to switch it on. Untick it
+  any time to go quiet without deleting your credentials.
+
+## Verification commands
+
+By default Claude may run `npm run lint` / `npm test`. For a non-Node project,
+set the right commands under **Settings → Verification commands** — they're saved
+per project and granted to the run, so Claude can actually check its own work.
+Plain commands only (no quotes, pipes, or chaining); anything that could smuggle
+a second command is rejected.
+
+## Important limitations, on purpose
+
+- **No ETA.** How long a ticket takes depends on its complexity in ways that
+  can't be predicted upfront. The progress bar reflects turns used against the
+  turn budget, not time-to-completion — treat it as "how much of its budget
+  it's used," not "% done."
+- **No auto-commit, no auto-push.** This is enforced by never granting the
+  `Bash(git commit*)` / `Bash(git push*)` patterns in `--allowedTools` inside
+  `lib/claudeRunner.js`. Don't add them unless you actually want that.
+- **Nothing is cleaned up for you.** Branches and worktrees stay until you
+  remove them. That's deliberate — the alternative is deleting work you hadn't
+  finished reviewing.
+- **Single-user, local only.** There's no auth on the dashboard itself — it's
+  meant to run on `localhost` for you alone, not to be exposed on your network.
+  Setting `HOST` to a non-loopback address does work, but it publishes a service
+  that runs code on your machine to anyone who can reach the port.
+
+## If the server is stopped mid-run
+
+Quitting with Ctrl+C kills the active `claude` processes and parks their runs.
+They come back in the dashboard as **Paused**; press **Continue** to resume the
+same Claude session, with the partial changes still in the run's worktree.
+
+## Updating (`git pull`)
+
+Safe to do any time, running or not. Settings are read as
+`{ ...defaults, ...whatever's saved }`, so a config file from an older version
+of this tool just picks up new settings at their default — nothing is lost,
+nothing needs migrating by hand.
+
+## Platform notes
+
+Built and exercised end-to-end on Windows. macOS/Linux are supported in code
+(`lib/claudeBin.js` resolves `claude` on PATH the normal POSIX way) and covered
+by unit tests, but not yet run against a real Mac/Linux machine — if `claude`
+doesn't spawn there, **Settings → Setup status** will say so specifically
+rather than leaving you with a bare `ENOENT`. If you hit something, please open
+an issue with what that check reported.
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+get set up, run the test suite, and submit a pull request. Testing this on a
+real macOS or Linux machine and reporting back is especially valuable, since
+that's currently the biggest untested gap.
+
+## License
+
+[MIT](LICENSE)

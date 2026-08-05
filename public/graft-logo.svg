@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+
+  <!-- Background -->
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="#C8743A"></rect>
+
+  <!-- Branches -->
+  <g stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none">
+
+    <!-- Upper-left -->
+    <path d="M128 128 L112 84"></path>
+
+    <!-- Bottom -->
+    <path d="M128 128 L128 176"></path>
+
+    <!-- Right -->
+    <path d="M128 128 L158 146"></path>
+
+  </g>
+
+  <!-- Center node -->
+  <circle cx="128" cy="128" r="10" fill="#EEF7DD"></circle>
+
+</svg>

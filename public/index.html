@@ -1,0 +1,1162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Graft</title>
+    <link rel="icon" type="image/svg+xml" href="graft-logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <img src="graft-logo.svg" alt="" width="36" height="36" />
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">Graft</span>
+            <span class="brand-sub" id="brand-sub">—</span>
+          </div>
+        </div>
+
+        <button id="palette-open-btn" class="palette-btn">
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.4-3.4" />
+          </svg>
+          <span>Search or jump…</span>
+          <span class="kbd">⌘K</span>
+        </button>
+
+        <nav class="nav">
+          <button
+            type="button"
+            class="nav-item active"
+            data-page="board"
+            id="nav-board"
+            aria-current="page"
+          >
+            <span class="nav-icon"
+              ><svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M4 5h6v14H4zM14 5h6v9h-6z" /></svg
+            ></span>
+            <span class="nav-label">Board</span>
+            <span class="nav-count" id="nav-count-board"></span>
+          </button>
+          <button
+            type="button"
+            class="nav-item"
+            data-page="run"
+            id="nav-inflight"
+          >
+            <span class="nav-icon"
+              ><svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 4l12 8-12 8z" /></svg
+            ></span>
+            <span class="nav-label">In flight</span>
+            <span class="nav-count" id="nav-count-inflight"></span>
+          </button>
+          <button type="button" class="nav-item" data-page="runs" id="nav-runs">
+            <span class="nav-icon"
+              ><svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+              >
+                <path d="M4 7h16M4 12h16M4 17h10" /></svg
+            ></span>
+            <span class="nav-label">Runs</span>
+            <span class="nav-count" id="nav-count-runs"></span>
+          </button>
+          <button
+            type="button"
+            class="nav-item"
+            data-page="worktrees"
+            id="nav-worktrees"
+          >
+            <span class="nav-icon"
+              ><svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M6 4v8a4 4 0 0 0 4 4h8M18 12l3 4-3 4" /></svg
+            ></span>
+            <span class="nav-label">Worktrees</span>
+            <span class="nav-count" id="nav-count-worktrees"></span>
+          </button>
+          <button
+            type="button"
+            class="nav-item"
+            data-page="settings"
+            id="nav-settings"
+          >
+            <span class="nav-icon"
+              ><svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+              >
+                <circle cx="12" cy="12" r="3.2" />
+                <path
+                  d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7 5.6 5.6"
+                /></svg
+            ></span>
+            <span class="nav-label">Settings</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="usage-mini">
+            <div class="usage-mini-head">
+              <span>Subscription</span>
+              <span class="usage-mini-left" id="usage-mini-left"></span>
+            </div>
+            <div id="usage-mini-body"></div>
+          </div>
+          <div class="user-chip" title="Signed in">
+            <span class="avatar" id="user-avatar">–</span>
+            <span class="user-email" id="user-email">…</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <!-- ===================== Board page ===================== -->
+        <section id="board-page" class="page">
+          <header class="page-header">
+            <div class="page-title-group">
+              <h1>Your board</h1>
+              <p class="page-sub" id="board-sub">Loading…</p>
+            </div>
+            <div class="page-actions">
+              <div class="seg-toggle" role="group" aria-label="Board view">
+                <button
+                  type="button"
+                  id="board-view-list-btn"
+                  class="active"
+                  aria-pressed="true"
+                >
+                  List
+                </button>
+                <button
+                  type="button"
+                  id="board-view-lanes-btn"
+                  aria-pressed="false"
+                >
+                  Lanes
+                </button>
+              </div>
+              <button
+                id="refresh-btn"
+                class="ghost-btn"
+                title="Refresh tickets"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="vertical-align: -2px; margin-right: 6px"
+                >
+                  <path d="M20 11A8 8 0 1 0 18 16.5M20 5v6h-6" /></svg
+                >Refresh
+              </button>
+              <button id="board-start-btn" class="primary-btn">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linejoin="round"
+                >
+                  <path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z" />
+                </svg>
+                Start a run
+              </button>
+            </div>
+          </header>
+          <div id="setup-banner" class="setup-banner hidden">
+            <span id="setup-banner-text"></span>
+            <button id="setup-banner-btn" class="ghost-btn">
+              Go to Settings
+            </button>
+          </div>
+          <div id="board-list" class="board">
+            <p class="hint">Loading tickets…</p>
+          </div>
+          <div id="board-lanes" class="lanes hidden"></div>
+        </section>
+
+        <!-- ===================== Run page ===================== -->
+        <section id="run-page" class="page hidden">
+          <header class="run-header">
+            <div class="run-breadcrumb">
+              <button id="run-back-btn" class="run-back">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m14 6-6 6 6 6" />
+                </svg>
+                Board
+              </button>
+              <span>/</span>
+              <span class="ticket-key" id="run-crumb-key"></span>
+            </div>
+            <div class="run-top">
+              <div class="run-title-group">
+                <h1 class="run-title" id="run-title"></h1>
+                <div class="run-meta-row">
+                  <span class="pill" id="run-status-pill"></span>
+                  <span class="mono-chip" id="run-branch-chip"></span>
+                  <span class="mono-chip hidden" id="run-model-chip"></span>
+                  <span class="run-meta-elapsed" id="run-elapsed"></span>
+                </div>
+              </div>
+              <div class="run-actions" id="run-actions"></div>
+            </div>
+            <div class="run-meta-row" id="run-progress-row">
+              <div class="turn-budget">
+                <div class="turn-budget-top">
+                  <span class="turn-budget-label">Turn budget</span>
+                  <span class="turn-budget-count" id="run-turns-count"></span>
+                </div>
+                <div class="turn-ticks" id="run-ticks"></div>
+              </div>
+              <div class="run-activity-row" id="run-activity-row">
+                <span class="run-activity-dot"></span>
+                <span class="run-activity-text" id="run-activity-text"></span>
+              </div>
+            </div>
+          </header>
+
+          <div class="run-body">
+            <section class="run-pane">
+              <div class="run-pane-head">
+                <h3>Activity</h3>
+                <span class="run-pane-meta" id="run-log-count"></span>
+              </div>
+              <div class="run-pane-body" id="run-log"></div>
+            </section>
+
+            <section class="run-pane">
+              <div class="run-pane-head">
+                <h3 id="run-pane-title">Proposed plan</h3>
+                <span class="run-pane-meta" id="run-pane-meta"></span>
+              </div>
+              <div class="run-pane-body">
+                <div id="run-error-panel" class="error-panel hidden">
+                  <p id="run-error-text"></p>
+                </div>
+
+                <div id="run-plan-panel" class="plan-card hidden">
+                  <div class="plan-card-head">
+                    <span class="plan-card-icon">
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="15"
+                        height="15"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                      >
+                        <path d="M12 8v5" />
+                        <circle cx="12" cy="17" r="0.6" fill="currentColor" />
+                      </svg>
+                    </span>
+                    <span class="plan-card-headline"
+                      >Nothing has been written yet. Approving creates the
+                      branch and worktree.</span
+                    >
+                  </div>
+                  <div id="run-plan-content" class="plan-body md"></div>
+                  <div class="plan-actions">
+                    <button id="run-approve-btn" class="primary-btn">
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                      Approve &amp; implement
+                    </button>
+                    <button id="run-edit-plan-btn" class="ghost-btn">
+                      Edit the plan
+                    </button>
+                    <button id="run-discard-btn" class="ghost-btn">
+                      Discard
+                    </button>
+                  </div>
+                </div>
+
+                <div id="run-edit-plan-panel" class="iterate-box hidden">
+                  <span class="iterate-box-title"
+                    >What should change about the plan?</span
+                  >
+                  <textarea
+                    id="run-edit-plan-input"
+                    class="input"
+                    rows="3"
+                    placeholder="e.g. Also cover the empty-list case, and don't touch the queue implementation."
+                  ></textarea>
+                  <div class="iterate-actions">
+                    <button id="run-edit-plan-send-btn" class="primary-btn">
+                      Send to Claude
+                    </button>
+                    <button id="run-edit-plan-cancel-btn" class="ghost-btn">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  id="run-live-panel"
+                  class="hidden"
+                  style="display: flex; flex-direction: column; gap: 12px"
+                >
+                  <div id="run-touched"></div>
+                  <div class="live-wait">
+                    <span class="live-wait-dot"></span>
+                    The full diff appears here the moment the run ends —
+                    computed against the base branch, so it stays exact after
+                    you stage or commit.
+                  </div>
+                </div>
+
+                <div
+                  id="run-diff-panel"
+                  class="hidden"
+                  style="display: flex; flex-direction: column; gap: 14px"
+                >
+                  <div id="run-diff-summary" class="diff-summary hidden">
+                    <div class="diff-summary-head">
+                      <span class="diff-summary-icon">
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="14"
+                          height="14"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                      </span>
+                      <span class="diff-summary-title">What Claude did</span>
+                    </div>
+                    <div
+                      id="run-diff-summary-body"
+                      class="diff-summary-body md"
+                    ></div>
+                  </div>
+                  <div
+                    id="run-iterations"
+                    class="history-iterations hidden"
+                  ></div>
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 12px;
+                      flex-wrap: wrap;
+                    "
+                  >
+                    <span class="diff-stats" id="run-diff-stats"></span>
+                  </div>
+                  <div id="run-diff-view" class="diff-view"></div>
+                  <div id="run-iterate-panel" class="iterate-box hidden">
+                    <span class="iterate-box-title">Ask for changes</span>
+                    <textarea
+                      id="run-iterate-input"
+                      class="input"
+                      rows="3"
+                      placeholder="e.g. Use the existing HttpClient wrapper instead of fetch, and add a test for the empty-list case."
+                    ></textarea>
+                    <div class="iterate-actions">
+                      <button id="run-iterate-send-btn" class="primary-btn">
+                        Send to Claude
+                      </button>
+                      <button id="run-iterate-cancel-btn" class="ghost-btn">
+                        Cancel
+                      </button>
+                      <span class="iterate-hint"
+                        >Continues the same session on this branch.</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- ===================== Runs history page ===================== -->
+        <section id="runs-page" class="page hidden">
+          <header class="page-header">
+            <div class="page-title-group">
+              <h1>Runs</h1>
+              <p class="page-sub">
+                Every run Graft has recorded, newest first. Nothing is deleted
+                for you.
+              </p>
+            </div>
+            <div
+              class="runs-filters"
+              id="runs-filters"
+              role="group"
+              aria-label="Filter runs by result"
+            >
+              <button
+                type="button"
+                class="runs-filter active"
+                aria-pressed="true"
+                data-filter="all"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                class="runs-filter"
+                aria-pressed="false"
+                data-filter="done"
+              >
+                Done
+              </button>
+              <button
+                type="button"
+                class="runs-filter"
+                aria-pressed="false"
+                data-filter="stopped"
+              >
+                Stopped
+              </button>
+              <button
+                type="button"
+                class="runs-filter"
+                aria-pressed="false"
+                data-filter="error"
+              >
+                Failed
+              </button>
+            </div>
+          </header>
+          <div
+            style="
+              padding: 0 32px 44px;
+              overflow-y: auto;
+              flex: 1;
+              min-height: 0;
+            "
+          >
+            <div class="runs-table">
+              <div class="runs-table-head">
+                <span class="rt-key">Ticket</span>
+                <span class="rt-title">Summary</span>
+                <span class="rt-branch">Branch</span>
+                <span class="rt-changes">Changes</span>
+                <span class="rt-turns">Turns</span>
+                <span class="rt-when">Finished</span>
+                <span class="rt-result">Result</span>
+              </div>
+              <div id="runs-table-body"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================== Worktrees page ===================== -->
+        <section id="worktrees-page" class="page hidden">
+          <header class="page-header">
+            <div class="page-title-group" style="max-width: 620px">
+              <h1>Worktrees</h1>
+              <p class="page-sub">
+                One checkout per ticket, each on its own branch — runs can't
+                collide and your main checkout is never touched. Nothing is
+                removed automatically.
+              </p>
+            </div>
+            <div class="wt-toolbar">
+              <span class="wt-selected-count" id="wt-selected-count"></span>
+              <button id="wt-remove-selected-btn" class="danger-btn hidden">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="vertical-align: -2px; margin-right: 6px"
+                >
+                  <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13" /></svg
+                >Remove selected
+              </button>
+            </div>
+          </header>
+          <div
+            style="
+              padding: 0 32px 44px;
+              overflow-y: auto;
+              flex: 1;
+              min-height: 0;
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+            "
+            id="wt-page-body"
+          >
+            <p class="hint">Loading…</p>
+          </div>
+        </section>
+
+        <!-- ===================== Settings page ===================== -->
+        <section id="settings-page" class="page hidden">
+          <header class="page-header"><h1>Settings</h1></header>
+          <div class="settings-body">
+            <nav class="settings-nav" id="settings-nav">
+              <button
+                type="button"
+                data-target="set-sec-setup"
+                class="active"
+                aria-current="true"
+              >
+                Setup <span class="group-dot hidden" id="setup-nav-dot"></span>
+              </button>
+              <button type="button" data-target="set-sec-project">
+                Project
+              </button>
+              <button type="button" data-target="set-sec-jira">Jira</button>
+              <button type="button" data-target="set-sec-usage">Usage</button>
+              <button type="button" data-target="set-sec-notify">
+                Reaching you
+              </button>
+              <button type="button" data-target="set-sec-models">Models</button>
+              <button type="button" data-target="set-sec-safety">Safety</button>
+            </nav>
+            <div class="settings-main" id="settings-main">
+              <section class="settings-card" id="set-sec-setup">
+                <div class="settings-card-head">
+                  <h2>Setup</h2>
+                  <button id="doctor-refresh" class="ghost-btn">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="13"
+                      height="13"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      style="vertical-align: -2px; margin-right: 6px"
+                    >
+                      <path d="M20 11A8 8 0 1 0 18 16.5M20 5v6h-6" /></svg
+                    >Re-check
+                  </button>
+                </div>
+                <div id="doctor-body" class="doctor-body">
+                  <p class="hint">Checking…</p>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-sec-project">
+                <div class="settings-card-head"><h2>Project</h2></div>
+                <p class="settings-note">
+                  Where runs happen. The base branch is detected for you.
+                </p>
+                <div class="settings-fields">
+                  <div class="field">
+                    <label for="set-projects-root">Projects folder</label>
+                    <div class="settings-row">
+                      <input
+                        id="set-projects-root"
+                        class="settings-input"
+                        placeholder="C:/Users/you/Projects"
+                        autocomplete="off"
+                      />
+                      <button id="set-scan" class="ghost-btn">Scan</button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="set-project">Project</label>
+                    <select id="set-project" class="settings-select">
+                      <option value="">— scan a folder first —</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-detected">
+                  <span>Base branch</span>
+                  <span id="set-base-branch" class="mono-chip">—</span>
+                  <span class="sep"></span>
+                  <span>Lint</span>
+                  <span class="mono-chip" id="set-lint-display">—</span>
+                  <span class="sep"></span>
+                  <span>Test</span>
+                  <span class="mono-chip" id="set-test-display">—</span>
+                  <span style="flex: 1"></span>
+                  <button id="set-cmd-edit-toggle" class="ghost-btn">
+                    Edit commands
+                  </button>
+                </div>
+                <div id="set-cmd-fields" class="settings-fields hidden">
+                  <div class="field">
+                    <label for="set-lint-cmd">Lint command</label>
+                    <input
+                      id="set-lint-cmd"
+                      class="settings-input"
+                      placeholder="e.g. npm run lint / ruff check . / dotnet format"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="set-test-cmd">Test command</label>
+                    <input
+                      id="set-test-cmd"
+                      class="settings-input"
+                      placeholder="e.g. npm test / pytest -q / dotnet test"
+                      autocomplete="off"
+                    />
+                  </div>
+                </div>
+                <div class="settings-actions hidden" id="set-cmd-actions">
+                  <button id="set-cmd-save" class="primary-btn">
+                    Save commands
+                  </button>
+                  <span id="set-cmd-status" class="settings-status"></span>
+                </div>
+                <p class="settings-note">
+                  Plain commands only — no quotes, pipes, or chaining. Leave
+                  both empty to keep the <code>npm</code> defaults.
+                </p>
+                <div class="settings-actions">
+                  <span id="set-project-status" class="settings-status"></span>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-sec-jira">
+                <div class="settings-card-head"><h2>Jira</h2></div>
+                <p class="settings-note">
+                  The API token is stored locally and never shown again.
+                </p>
+                <div class="settings-fields">
+                  <div class="field">
+                    <label for="set-jira-domain">Domain</label>
+                    <input
+                      id="set-jira-domain"
+                      class="settings-input"
+                      placeholder="yourcompany.atlassian.net"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="set-jira-email">Email</label>
+                    <input
+                      id="set-jira-email"
+                      class="settings-input"
+                      placeholder="you@company.com"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="set-jira-token">API token</label>
+                    <input
+                      id="set-jira-token"
+                      class="settings-input"
+                      type="password"
+                      placeholder="Enter a token to set it"
+                      autocomplete="off"
+                    />
+                  </div>
+                </div>
+                <div class="settings-actions">
+                  <button id="set-jira-save" class="primary-btn">Save</button>
+                  <span id="set-jira-status" class="settings-status"></span>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-sec-usage">
+                <div class="settings-card-head">
+                  <h2>Subscription usage</h2>
+                  <button id="usage-refresh" class="ghost-btn">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="13"
+                      height="13"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      style="vertical-align: -2px; margin-right: 6px"
+                    >
+                      <path d="M20 11A8 8 0 1 0 18 16.5M20 5v6h-6" /></svg
+                    >Refresh
+                  </button>
+                </div>
+                <div id="usage-body" class="usage-body">
+                  <p class="hint">Loading…</p>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-sec-notify">
+                <div class="settings-card-head"><h2>Reaching you</h2></div>
+                <p class="settings-note">
+                  A run can take twenty minutes. These are how it gets your
+                  attention.
+                </p>
+
+                <div class="wt-row" style="border-radius: 16px">
+                  <div class="wt-info">
+                    <span
+                      class="wt-branch"
+                      style="font-family: var(--font-body); font-weight: 700"
+                      >Desktop notifications</span
+                    >
+                    <span class="wt-path" style="white-space: normal"
+                      >Fires when a plan needs approval or a run ends.</span
+                    >
+                  </div>
+                  <button
+                    id="notif-toggle-btn"
+                    class="toggle-switch"
+                    type="button"
+                    role="switch"
+                    aria-checked="false"
+                    aria-label="Desktop notifications"
+                  >
+                    <span class="toggle-knob"></span>
+                  </button>
+                </div>
+                <p class="settings-note hidden" id="notif-status-note"></p>
+
+                <div
+                  class="wt-row"
+                  style="
+                    border-radius: 16px;
+                    align-items: flex-start;
+                    flex-direction: column;
+                    gap: 12px;
+                  "
+                >
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      justify-content: space-between;
+                      width: 100%;
+                      gap: 12px;
+                    "
+                  >
+                    <div class="wt-info">
+                      <span
+                        class="wt-branch"
+                        style="font-family: var(--font-body); font-weight: 700"
+                        >Telegram</span
+                      >
+                      <span
+                        class="wt-path"
+                        style="white-space: normal"
+                        id="tg-note"
+                        >Reaches you with the dashboard closed.</span
+                      >
+                    </div>
+                    <button
+                      id="set-tg-enabled-toggle"
+                      class="toggle-switch"
+                      type="button"
+                      role="switch"
+                      aria-checked="false"
+                      aria-label="Telegram notifications"
+                    >
+                      <span class="toggle-knob"></span>
+                    </button>
+                  </div>
+                  <div class="settings-fields" style="width: 100%">
+                    <div class="field">
+                      <label for="set-tg-token">Bot token</label>
+                      <input
+                        id="set-tg-token"
+                        class="settings-input"
+                        type="password"
+                        placeholder="Enter a bot token to set it"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="set-tg-chat">Chat ID</label>
+                      <input
+                        id="set-tg-chat"
+                        class="settings-input"
+                        placeholder="e.g. 123456789"
+                        autocomplete="off"
+                      />
+                    </div>
+                  </div>
+                  <div class="settings-actions">
+                    <button id="set-tg-save" class="primary-btn">Save</button>
+                    <button id="set-tg-test" class="ghost-btn">
+                      Send test message
+                    </button>
+                    <span id="set-tg-status" class="settings-status"></span>
+                  </div>
+                  <!-- kept for existing app.js logic that reads .checked directly; visually hidden, driven by the toggle switch above -->
+                  <input id="set-tg-enabled" type="checkbox" class="hidden" />
+                </div>
+
+                <div class="wt-row" style="border-radius: 16px">
+                  <div class="wt-info">
+                    <span
+                      class="wt-branch"
+                      style="font-family: var(--font-body); font-weight: 700"
+                      >Comment back on the Jira ticket</span
+                    >
+                    <span
+                      class="wt-path"
+                      style="white-space: normal"
+                      id="jira-comment-note"
+                      >Posts the branch and summary when a run finishes.</span
+                    >
+                  </div>
+                  <button
+                    id="jira-comment-toggle-btn"
+                    class="toggle-switch"
+                    type="button"
+                    role="switch"
+                    aria-checked="false"
+                    aria-label="Comment back on the Jira ticket"
+                  >
+                    <span class="toggle-knob"></span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="settings-card" id="set-sec-models">
+                <div class="settings-card-head"><h2>Default model</h2></div>
+                <p class="settings-note">
+                  The model Claude uses for new runs. You can still change it
+                  per ticket.
+                </p>
+                <select id="settings-model" class="settings-select"></select>
+              </section>
+
+              <section
+                class="settings-card"
+                id="set-sec-safety"
+                style="
+                  background: var(--danger-soft);
+                  border-color: var(--danger-soft-strong);
+                "
+              >
+                <div style="display: flex; gap: 16px; align-items: flex-start">
+                  <span
+                    style="
+                      width: 34px;
+                      height: 34px;
+                      border-radius: 50%;
+                      flex: none;
+                      display: grid;
+                      place-items: center;
+                      background: rgba(192, 72, 60, 0.2);
+                      color: var(--danger);
+                    "
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="17"
+                      height="17"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 3 2.5 20h19L12 3ZM12 10v4" />
+                      <circle cx="12" cy="17" r="0.6" fill="currentColor" />
+                    </svg>
+                  </span>
+                  <div style="display: flex; flex-direction: column; gap: 6px">
+                    <h2>Keep this on localhost</h2>
+                    <p class="settings-note" style="color: var(--text-dim)">
+                      Graft runs Claude with write access to whatever repo you
+                      point it at, and has no login of its own. Claude drafts a
+                      plan for your approval before writing code, and never runs
+                      <code>git commit</code> or <code>git push</code> — you
+                      review the diff and commit yourself. Each run is confined
+                      to its own worktree, so it can't touch your main checkout
+                      or another ticket's work.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <nav class="bottom-tabs">
+        <button
+          type="button"
+          class="bottom-tab active"
+          data-page="board"
+          aria-current="page"
+        >
+          <span class="nav-icon"
+            ><svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 5h6v14H4zM14 5h6v9h-6z" /></svg
+          ></span>
+          <span class="bottom-tab-label">Board</span>
+        </button>
+        <button type="button" class="bottom-tab" data-page="runs">
+          <span class="nav-icon"
+            ><svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+            >
+              <path d="M4 7h16M4 12h16M4 17h10" /></svg
+          ></span>
+          <span class="bottom-tab-label">Runs</span>
+        </button>
+        <button type="button" class="bottom-tab" data-page="worktrees">
+          <span class="nav-icon"
+            ><svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M6 4v8a4 4 0 0 0 4 4h8M18 12l3 4-3 4" /></svg
+          ></span>
+          <span class="bottom-tab-label">Trees</span>
+        </button>
+        <button type="button" class="bottom-tab" data-page="settings">
+          <span class="nav-icon"
+            ><svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+            >
+              <circle cx="12" cy="12" r="3.2" />
+              <path
+                d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7 5.6 5.6"
+              /></svg
+          ></span>
+          <span class="bottom-tab-label">Settings</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ===================== Ticket drawer ===================== -->
+    <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+    <aside id="drawer" class="drawer hidden">
+      <div class="drawer-head">
+        <span class="ticket-key" id="drawer-key"></span>
+        <span class="badge" id="drawer-type"></span>
+        <span class="badge badge-muted" id="drawer-priority"></span>
+        <span style="flex: 1"></span>
+        <button id="drawer-close" class="drawer-close" aria-label="Close">
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          >
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+      <div class="drawer-body">
+        <h2 class="drawer-title" id="drawer-title"></h2>
+        <div class="drawer-section">
+          <span class="drawer-label">Description</span>
+          <pre id="drawer-description" class="drawer-description"></pre>
+        </div>
+        <div class="drawer-section">
+          <div class="drawer-section-head">
+            <span class="drawer-label">Reference files</span>
+            <span class="drawer-label-note"
+              >optional — Claude reads these closely</span
+            >
+          </div>
+          <div class="ref-input-wrap">
+            <input
+              id="ref-input"
+              class="input"
+              placeholder="Search files in the repo…"
+              autocomplete="off"
+            />
+            <div id="ref-suggest" class="ref-suggest hidden"></div>
+          </div>
+          <div id="ref-chips" class="ref-chips"></div>
+        </div>
+        <div class="drawer-section" id="drawer-linked-section">
+          <span class="drawer-label">Linked</span>
+          <div
+            id="drawer-linked"
+            style="display: flex; flex-direction: column; gap: 7px"
+          ></div>
+        </div>
+      </div>
+      <div class="drawer-foot">
+        <label class="drawer-model">
+          Model
+          <select id="model-select"></select>
+        </label>
+        <span style="flex: 1"></span>
+        <button id="drawer-start-btn" class="primary-btn">
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linejoin="round"
+          >
+            <path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z" />
+          </svg>
+          Draft a plan
+        </button>
+      </div>
+    </aside>
+
+    <!-- ===================== Command palette ===================== -->
+    <div id="palette-backdrop" class="palette-backdrop hidden">
+      <div class="palette">
+        <div class="palette-input-row">
+          <svg
+            viewBox="0 0 24 24"
+            width="17"
+            height="17"
+            fill="none"
+            stroke="var(--accent)"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.4-3.4" />
+          </svg>
+          <input
+            id="palette-input"
+            class="palette-input"
+            placeholder="Search tickets, runs, or type a command…"
+            autocomplete="off"
+          />
+          <span class="kbd">esc</span>
+        </div>
+        <div id="palette-results" class="palette-results"></div>
+      </div>
+    </div>
+
+    <!-- ===================== Toast ===================== -->
+    <div id="toast" class="toast hidden">
+      <span class="toast-icon">
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </span>
+      <span class="toast-text" id="toast-text"></span>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
