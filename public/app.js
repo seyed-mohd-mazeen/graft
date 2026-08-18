@@ -129,6 +129,9 @@ const testDisplayEl = document.getElementById('set-test-display');
 const cmdEditToggleBtn = document.getElementById('set-cmd-edit-toggle');
 const cmdFieldsEl = document.getElementById('set-cmd-fields');
 const cmdActionsEl = document.getElementById('set-cmd-actions');
+const baseBranchInput = document.getElementById('set-base-branch-input');
+const baseBranchListEl = document.getElementById('set-base-branch-list');
+const baseBranchDetectBtn = document.getElementById('set-base-branch-detect');
 const lintCmdInput = document.getElementById('set-lint-cmd');
 const testCmdInput = document.getElementById('set-test-cmd');
 const cmdSaveBtn = document.getElementById('set-cmd-save');
@@ -1769,6 +1772,29 @@ function showToast(text) {
 
 // ================= Settings =================================================
 
+// The auto-detected branch for the current repo, cached so "Use detected"
+// doesn't need its own round trip.
+let lastDetectedBranch = '';
+
+async function populateBranchList(repoPath) {
+  baseBranchListEl.innerHTML = '';
+  lastDetectedBranch = '';
+  if (!repoPath) return;
+  try {
+    const res = await fetch(`/api/branches?repoPath=${encodeURIComponent(repoPath)}`);
+    const data = await res.json();
+    if (!res.ok) return;
+    lastDetectedBranch = data.detected || '';
+    for (const b of data.branches || []) {
+      const opt = document.createElement('option');
+      opt.value = b;
+      baseBranchListEl.appendChild(opt);
+    }
+  } catch {
+    /* datalist stays empty; free-text entry still works */
+  }
+}
+
 async function loadConfig() {
   try {
     const res = await fetch('/api/config');
@@ -1781,6 +1807,8 @@ async function loadConfig() {
     jiraTokenInput.placeholder = c.jiraTokenSet ? '•••••••• (set — enter to replace)' : 'Enter a token to set it';
     projectsRootInput.value = c.projectsRoot || '';
     baseBranchEl.textContent = c.baseBranch || '—';
+    baseBranchInput.value = c.baseBranch || '';
+    if (c.repoPath) populateBranchList(c.repoPath);
     lintCmdInput.value = c.lintCommand || '';
     testCmdInput.value = c.testCommand || '';
     lintDisplayEl.textContent = c.lintCommand || 'npm run lint';
@@ -1859,6 +1887,8 @@ projectSelect.addEventListener('change', async () => {
     if (!res.ok) throw new Error(data.error || 'Could not save');
     currentConfig = data;
     baseBranchEl.textContent = data.baseBranch || '—';
+    baseBranchInput.value = data.baseBranch || '';
+    populateBranchList(repoPath);
     brandSubEl.textContent = `${repoPath.split(/[\\/]/).pop()} · ${data.baseBranch || 'main'}`;
     projectStatusEl.textContent = `Working in this project · base branch “${data.baseBranch}”.`;
     lintCmdInput.value = data.lintCommand || '';
@@ -1981,18 +2011,28 @@ jiraCommentToggleBtn.addEventListener('click', async () => {
   }
 });
 
+baseBranchDetectBtn.addEventListener('click', () => {
+  if (lastDetectedBranch) baseBranchInput.value = lastDetectedBranch;
+});
+
 cmdSaveBtn.addEventListener('click', async () => {
   if (!currentConfig.repoPath) { cmdStatusEl.textContent = 'Select a project first.'; return; }
   cmdSaveBtn.disabled = true;
   cmdStatusEl.textContent = 'Saving…';
   try {
+    const body = { lintCommand: lintCmdInput.value.trim(), testCommand: testCmdInput.value.trim() };
+    const branch = baseBranchInput.value.trim();
+    if (branch) body.baseBranch = branch;
     const res = await fetch('/api/config', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lintCommand: lintCmdInput.value.trim(), testCommand: testCmdInput.value.trim() }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not save');
     currentConfig = data;
+    baseBranchEl.textContent = data.baseBranch || '—';
+    baseBranchInput.value = data.baseBranch || '';
+    brandSubEl.textContent = data.repoPath ? `${data.repoPath.split(/[\\/]/).pop()} · ${data.baseBranch || 'main'}` : brandSubEl.textContent;
     lintDisplayEl.textContent = data.lintCommand || 'npm run lint';
     testDisplayEl.textContent = data.testCommand || 'npm test';
     cmdStatusEl.textContent = data.lintCommand || data.testCommand ? 'Saved — Claude may run these in this project.' : 'Cleared — using the npm defaults.';

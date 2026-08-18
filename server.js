@@ -213,6 +213,25 @@ app.get("/api/config", (req, res) => {
   res.json(publicConfig());
 });
 
+// Branch names for the Settings base-branch picker, plus the auto-detected
+// default so the UI can offer a "use detected" shortcut.
+app.get("/api/branches", async (req, res) => {
+  const repoPath =
+    typeof req.query.repoPath === "string" && req.query.repoPath
+      ? req.query.repoPath
+      : settings.get().repoPath;
+  if (!repoPath) return res.json({ branches: [], detected: "" });
+  try {
+    const [branches, detected] = await Promise.all([
+      projects.listBranches(repoPath),
+      projects.detectBaseBranch(repoPath),
+    ]);
+    res.json({ branches, detected });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Save settings from the UI. Only fields present in the body are changed; an
 // empty token is ignored so it isn't wiped by a blank field.
 app.post("/api/config", async (req, res) => {

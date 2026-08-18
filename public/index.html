@@ -628,7 +628,8 @@
               <section class="settings-card" id="set-sec-project">
                 <div class="settings-card-head"><h2>Project</h2></div>
                 <p class="settings-note">
-                  Where runs happen. The base branch is detected for you.
+                  Where runs happen. The base branch is detected for you, or
+                  pick your own under “Edit settings” below.
                 </p>
                 <div class="settings-fields">
                   <div class="field">
@@ -661,10 +662,26 @@
                   <span class="mono-chip" id="set-test-display">—</span>
                   <span style="flex: 1"></span>
                   <button id="set-cmd-edit-toggle" class="ghost-btn">
-                    Edit commands
+                    Edit settings
                   </button>
                 </div>
                 <div id="set-cmd-fields" class="settings-fields hidden">
+                  <div class="field">
+                    <label for="set-base-branch-input">Base branch</label>
+                    <div class="settings-row">
+                      <input
+                        id="set-base-branch-input"
+                        class="settings-input"
+                        list="set-base-branch-list"
+                        placeholder="e.g. main, develop, release/1.0"
+                        autocomplete="off"
+                      />
+                      <datalist id="set-base-branch-list"></datalist>
+                      <button id="set-base-branch-detect" class="ghost-btn" type="button">
+                        Use detected
+                      </button>
+                    </div>
+                  </div>
                   <div class="field">
                     <label for="set-lint-cmd">Lint command</label>
                     <input
@@ -686,13 +703,15 @@
                 </div>
                 <div class="settings-actions hidden" id="set-cmd-actions">
                   <button id="set-cmd-save" class="primary-btn">
-                    Save commands
+                    Save settings
                   </button>
                   <span id="set-cmd-status" class="settings-status"></span>
                 </div>
                 <p class="settings-note">
-                  Plain commands only — no quotes, pipes, or chaining. Leave
-                  both empty to keep the <code>npm</code> defaults.
+                  Base branch: leave empty to keep whatever is already saved.
+                  Commands: plain commands only — no quotes, pipes, or
+                  chaining. Leave both empty to keep the <code>npm</code>
+                  defaults.
                 </p>
                 <div class="settings-actions">
                   <span id="set-project-status" class="settings-status"></span>

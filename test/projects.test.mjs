@@ -88,6 +88,30 @@ test('detectBaseBranch returns main for something that is not a repo', async () 
   }
 });
 
+test('listBranches lists local and remote-tracking branches, deduped', async () => {
+  const { root, repo, git } = await makeFixture();
+  try {
+    await git(['branch', 'develop']);
+    await git(['remote', 'add', 'origin', repo]);
+    await git(['fetch', 'origin', '-q']);
+    const branches = await projects.listBranches(repo);
+    // The fixture's own worktree checkout (feature/x/ABC-1) is a local branch
+    // of this same repo too, so it's listed alongside develop and trunk.
+    assert.deepEqual(branches, ['develop', 'feature/x/ABC-1', 'trunk']);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('listBranches returns an empty list for something that is not a repo', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ticket-runner-norepo-'));
+  try {
+    assert.deepEqual(await projects.listBranches(dir), []);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('searchRepoFiles filters tracked files and caches the listing', async () => {
   const { root, repo } = await makeFixture();
   try {
