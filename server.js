@@ -9,6 +9,8 @@ const settings = require("./lib/settings");
 const projects = require("./lib/projects");
 const telegram = require("./lib/telegram");
 const doctor = require("./lib/doctor");
+const releaseRunner = require("./lib/releaseRunner");
+const releaseStore = require("./lib/releaseStore");
 
 // Models offered in the dropdown. There is no API to enumerate the models a
 // subscription can access, so we list the known aliases; picking one the plan
@@ -227,6 +229,19 @@ app.get("/api/branches", async (req, res) => {
       projects.detectBaseBranch(repoPath),
     ]);
     res.json({ branches, detected });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Branches that currently exist on origin, read live (no fetch, no local ref
+// changes) — the Release page's picker, so it always reflects what's actually
+// on the remote right now rather than whatever's cached locally.
+app.get("/api/release-branches", async (req, res) => {
+  const repoPath = settings.get().repoPath;
+  if (!repoPath) return res.json({ branches: [] });
+  try {
+    res.json({ branches: await projects.listRemoteBranches(repoPath) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -579,6 +594,103 @@ app.delete("/api/worktrees", async (req, res) => {
         .status(result.reason === "dirty" ? 409 : 400)
         .json({ error: result.error || "Could not remove that worktree." });
     }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Releases: sequential branch merges into a release branch ----
+
+app.post("/api/releases", (req, res) => {
+  const body = req.body || {};
+  const destBranch = typeof body.destBranch === "string" ? body.destBranch.trim() : "";
+  const sourceBranches = Array.isArray(body.sourceBranches)
+    ? body.sourceBranches.map((b) => String(b).trim()).filter(Boolean)
+    : [];
+  if (!destBranch) return res.status(400).json({ error: "A destination branch is required." });
+  if (!sourceBranches.length) return res.status(400).json({ error: "Select at least one branch to merge." });
+
+  const repoPath = settings.get().repoPath;
+  if (!repoPath) return res.status(400).json({ error: "Select a project in Settings first." });
+
+  const id = releaseRunner.startRelease({ repoPath, destBranch, sourceBranches });
+  res.json({ id });
+});
+
+app.get("/api/releases", (req, res) => {
+  res.json(releaseStore.list());
+});
+
+app.get("/api/releases/:id", (req, res) => {
+  const job = releaseRunner.getJob(req.params.id);
+  if (!job) return res.status(404).json({ error: "Unknown release run" });
+  res.json(releaseRunner.snapshot(job));
+});
+
+// Server-Sent Events: live progress for a release run — same shape as
+// /api/tasks/:id/stream.
+app.get("/api/releases/:id/stream", (req, res) => {
+  const job = releaseRunner.getJob(req.params.id);
+  if (!job) return res.status(404).end();
+
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+
+  const send = (payload) => {
+    try {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch {
+      cleanup();
+    }
+  };
+
+  const onUpdate = (meta) => send({ kind: "update", task: meta });
+  const onLog = (entry) => send({ kind: "log", entry });
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": ping\n\n");
+    } catch {
+      cleanup();
+    }
+  }, SSE_HEARTBEAT_MS);
+
+  let closed = false;
+  function cleanup() {
+    if (closed) return;
+    closed = true;
+    clearInterval(heartbeat);
+    job.emitter.off("update", onUpdate);
+    job.emitter.off("log", onLog);
+  }
+
+  job.emitter.on("update", onUpdate);
+  job.emitter.on("log", onLog);
+  req.on("close", cleanup);
+  res.on("error", cleanup);
+
+  send({ kind: "snapshot", task: releaseRunner.snapshot(job) });
+});
+
+app.post("/api/releases/:id/push", async (req, res) => {
+  try {
+    const result = await releaseRunner.pushRelease(req.params.id);
+    if (result.error) return res.status(result.code || 500).json({ error: result.error });
+    res.json(releaseRunner.snapshot(result.job));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/releases/:id/discard", async (req, res) => {
+  try {
+    const result = await releaseRunner.discardRelease(req.params.id);
+    if (result.error) return res.status(result.code || 500).json({ error: result.error });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

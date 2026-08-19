@@ -129,6 +129,29 @@
           <button
             type="button"
             class="nav-item"
+            data-page="release"
+            id="nav-release"
+          >
+            <span class="nav-icon"
+              ><svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M6 3v12a3 3 0 0 0 3 3h6M6 3a2 2 0 1 1 0 4M6 3a2 2 0 1 0 0 4M18 18a2 2 0 1 1 0 4M18 18a2 2 0 1 0 0 4M18 8l-4 4 4 4"
+                /></svg
+            ></span>
+            <span class="nav-label">Release</span>
+          </button>
+          <button
+            type="button"
+            class="nav-item"
             data-page="settings"
             id="nav-settings"
           >
@@ -573,6 +596,126 @@
             id="wt-page-body"
           >
             <p class="hint">Loading…</p>
+          </div>
+        </section>
+
+        <!-- ===================== Release page ===================== -->
+        <section id="release-page" class="page hidden">
+          <header class="page-header">
+            <div class="page-title-group" style="max-width: 640px">
+              <h1>Release</h1>
+              <p class="page-sub">
+                Merges branches into a destination branch one at a time, so
+                each merge sees the result of the one before it — not a stale
+                snapshot. A branch that conflicts is skipped and reported; the
+                rest still merge. Nothing reaches origin until you explicitly
+                push.
+              </p>
+            </div>
+          </header>
+
+          <div class="release-body" id="release-picker-view">
+            <div class="release-col">
+              <div class="field">
+                <label for="release-dest-select">Destination branch</label>
+                <select id="release-dest-select" class="settings-select">
+                  <option value="">— choose a branch —</option>
+                  <option value="__new__">+ Create a new branch…</option>
+                </select>
+                <input
+                  id="release-dest-new-input"
+                  class="settings-input hidden"
+                  placeholder="e.g. RELEASE-sprint42"
+                  autocomplete="off"
+                />
+                <p class="hint">
+                  Doesn't exist on origin yet? It'll be created from your
+                  configured base branch.
+                </p>
+              </div>
+              <div class="field">
+                <label for="release-branch-trigger">Source branches</label>
+                <div class="release-ms" id="release-ms">
+                  <button
+                    type="button"
+                    id="release-branch-trigger"
+                    class="settings-input release-ms-trigger"
+                  >
+                    <span id="release-branch-trigger-label">Select branches…</span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                  <div class="release-ms-panel hidden" id="release-branch-panel">
+                    <input
+                      id="release-branch-filter"
+                      class="settings-input"
+                      placeholder="Filter branches…"
+                      autocomplete="off"
+                    />
+                    <div class="release-branch-list" id="release-branch-list">
+                      <p class="hint">Loading branches…</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="release-col">
+              <div class="release-order-head">
+                <span>Merge order</span>
+                <span class="release-order-count" id="release-order-count"></span>
+              </div>
+              <div class="release-order-list" id="release-order-list">
+                <p class="hint">Select branches on the left to add them here.</p>
+              </div>
+              <div class="settings-actions">
+                <button id="release-run-btn" class="primary-btn" disabled>
+                  Run release
+                </button>
+                <span id="release-run-status" class="settings-status"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="run-body hidden" id="release-run-view">
+            <section class="run-pane">
+              <div class="run-pane-head">
+                <h3>Progress</h3>
+                <span class="run-pane-meta" id="release-log-count"></span>
+              </div>
+              <div class="run-pane-body" id="release-log"></div>
+            </section>
+            <section class="run-pane">
+              <div class="run-pane-head">
+                <h3>Branches</h3>
+                <span class="pill" id="release-status-pill">Running</span>
+              </div>
+              <div class="run-pane-body" id="release-results"></div>
+              <div class="release-push-bar hidden" id="release-push-bar">
+                <p class="settings-note" id="release-push-summary"></p>
+                <p class="hint hidden" id="release-push-error"></p>
+                <div class="settings-actions">
+                  <button id="release-push-btn" class="primary-btn">
+                    Push to origin
+                  </button>
+                  <button id="release-discard-btn" class="danger-btn">
+                    Discard
+                  </button>
+                  <button id="release-new-btn" class="ghost-btn hidden">
+                    Start another release
+                  </button>
+                </div>
+              </div>
+            </section>
           </div>
         </section>
 

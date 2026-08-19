@@ -10,6 +10,7 @@ const navItems = {
   run: document.getElementById('nav-inflight'),
   runs: document.getElementById('nav-runs'),
   worktrees: document.getElementById('nav-worktrees'),
+  release: document.getElementById('nav-release'),
   settings: document.getElementById('nav-settings'),
 };
 const navCountBoard = document.getElementById('nav-count-board');
@@ -27,6 +28,7 @@ const pages = {
   run: document.getElementById('run-page'),
   runs: document.getElementById('runs-page'),
   worktrees: document.getElementById('worktrees-page'),
+  release: document.getElementById('release-page'),
   settings: document.getElementById('settings-page'),
 };
 
@@ -109,6 +111,32 @@ const runsTableBodyEl = document.getElementById('runs-table-body');
 const wtSelectedCountEl = document.getElementById('wt-selected-count');
 const wtRemoveSelectedBtn = document.getElementById('wt-remove-selected-btn');
 const wtPageBodyEl = document.getElementById('wt-page-body');
+
+// Release page
+const releaseDestSelectEl = document.getElementById('release-dest-select');
+const releaseDestNewInput = document.getElementById('release-dest-new-input');
+const releaseMsEl = document.getElementById('release-ms');
+const releaseBranchTriggerBtn = document.getElementById('release-branch-trigger');
+const releaseBranchTriggerLabelEl = document.getElementById('release-branch-trigger-label');
+const releaseBranchPanelEl = document.getElementById('release-branch-panel');
+const releaseBranchFilterInput = document.getElementById('release-branch-filter');
+const releaseBranchListEl = document.getElementById('release-branch-list');
+const releaseOrderListEl = document.getElementById('release-order-list');
+const releaseOrderCountEl = document.getElementById('release-order-count');
+const releaseRunBtn = document.getElementById('release-run-btn');
+const releaseRunStatusEl = document.getElementById('release-run-status');
+const releasePickerViewEl = document.getElementById('release-picker-view');
+const releaseRunViewEl = document.getElementById('release-run-view');
+const releaseLogEl = document.getElementById('release-log');
+const releaseLogCountEl = document.getElementById('release-log-count');
+const releaseResultsEl = document.getElementById('release-results');
+const releaseStatusPillEl = document.getElementById('release-status-pill');
+const releasePushBarEl = document.getElementById('release-push-bar');
+const releasePushSummaryEl = document.getElementById('release-push-summary');
+const releasePushErrorEl = document.getElementById('release-push-error');
+const releasePushBtn = document.getElementById('release-push-btn');
+const releaseDiscardBtn = document.getElementById('release-discard-btn');
+const releaseNewBtn = document.getElementById('release-new-btn');
 
 // Settings
 const settingsNavEl = document.getElementById('settings-nav');
@@ -535,6 +563,8 @@ function showPage(page) {
     renderRunsPage();
   } else if (page === 'worktrees') {
     loadWorktreesPage();
+  } else if (page === 'release') {
+    loadReleasePage();
   } else if (page === 'run' && !displayedTaskId && !displayedHistoryId) {
     // Landed on the Run nav item with nothing specific open: show the most
     // recently active in-flight task, if any, else send them back to the board.
@@ -1668,6 +1698,412 @@ async function loadWorktrees() {
     /* ignore */
   }
 }
+
+// ================= Release ===================================================
+//
+// Merges an ordered list of branches into a destination branch one at a time
+// (each merge sees the previous one's result, not a stale snapshot), then
+// pushes to origin as a separate, explicit step. Reuses the tasks page's
+// SSE/live-update idiom (see subscribeToTask) at a much smaller scope.
+
+let releaseAllBranches = [];
+let releaseSelected = []; // ordered branch names, picker -> merge order
+let releaseCurrentId = null;
+let releaseEventSource = null;
+let releaseLogEntries = [];
+
+const RELEASE_TERMINAL = new Set(['done', 'error', 'cancelled', 'no-changes']);
+
+const RELEASE_RESULT_META = {
+  pending: ['Queued', 'pill-idle'],
+  running: ['Merging…', 'pill-running'],
+  merged: ['Merged', 'pill-done'],
+  conflict: ['Conflict', 'pill-error'],
+};
+
+const RELEASE_JOB_META = {
+  running: ['Running', 'pill-running'],
+  'awaiting-push': ['Ready to push', 'pill-await'],
+  'no-changes': ['Nothing to push', 'pill-idle'],
+  done: ['Done', 'pill-done'],
+  error: ['Error', 'pill-error'],
+  cancelled: ['Discarded', 'pill-idle'],
+};
+
+async function loadReleasePage() {
+  // A run already in progress (or awaiting a push/discard decision) stays on
+  // screen across navigation — only reset to the picker once it's finished.
+  if (releaseCurrentId) return;
+  releasePickerViewEl.classList.remove('hidden');
+  releaseRunViewEl.classList.add('hidden');
+  releaseBranchPanelEl.classList.add('hidden');
+  releaseDestNewInput.classList.add('hidden');
+  releaseDestNewInput.value = '';
+  releaseBranchListEl.innerHTML = '<p class="hint">Loading branches…</p>';
+  try {
+    const res = await fetch('/api/release-branches');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not load branches');
+    releaseAllBranches = data.branches || [];
+    releaseSelected = [];
+    renderReleaseDestSelect();
+    renderReleaseBranchList();
+    renderReleaseOrderList();
+  } catch (err) {
+    releaseBranchListEl.innerHTML = `<p class="hint">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+// The destination is either a picked existing branch, or (when "+ Create a
+// new branch…" is selected) whatever's typed into the reveal-on-demand text
+// input — a plain <select> can't offer a name that doesn't exist yet.
+function releaseDestValue() {
+  if (releaseDestSelectEl.value === '__new__') return releaseDestNewInput.value.trim();
+  return releaseDestSelectEl.value;
+}
+
+function renderReleaseDestSelect() {
+  releaseDestSelectEl.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '— choose a branch —';
+  releaseDestSelectEl.appendChild(placeholder);
+
+  const createOpt = document.createElement('option');
+  createOpt.value = '__new__';
+  createOpt.textContent = '+ Create a new branch…';
+  releaseDestSelectEl.appendChild(createOpt);
+
+  if (releaseAllBranches.length) {
+    const sep = document.createElement('option');
+    sep.value = ''; // an <option> with no value attribute defaults its value
+    // to its own text — harmless for a disabled option through normal UI
+    // interaction, but worth pinning explicitly rather than leaving it to
+    // fall back to the separator glyph if ever set programmatically.
+    sep.disabled = true;
+    sep.textContent = '──────────';
+    releaseDestSelectEl.appendChild(sep);
+  }
+
+  for (const b of releaseAllBranches) {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = b;
+    releaseDestSelectEl.appendChild(opt);
+  }
+}
+
+function updateReleaseRunButton() {
+  releaseRunBtn.disabled = releaseSelected.length === 0 || !releaseDestValue();
+}
+
+function renderReleaseBranchList() {
+  const filter = releaseBranchFilterInput.value.trim().toLowerCase();
+  const dest = releaseDestValue();
+  const matches = releaseAllBranches.filter((b) => b !== dest && (!filter || b.toLowerCase().includes(filter)));
+  releaseBranchListEl.innerHTML = '';
+  if (!matches.length) {
+    releaseBranchListEl.innerHTML = '<p class="hint">No branches match.</p>';
+    return;
+  }
+  for (const branch of matches) {
+    const row = document.createElement('div');
+    row.className = 'wt-page-row';
+    const box = document.createElement('button');
+    box.type = 'button';
+    box.className = 'wt-checkbox';
+    box.setAttribute('role', 'checkbox');
+    const checked = releaseSelected.includes(branch);
+    box.classList.toggle('checked', checked);
+    box.setAttribute('aria-checked', String(checked));
+    box.setAttribute('aria-label', `Select ${branch}`);
+    box.addEventListener('click', (e) => {
+      // Never let this reach the document-level outside-click listener that
+      // closes the panel — and don't rebuild the (potentially 1000+ row)
+      // list just to toggle one row: re-rendering the clicked button out
+      // from under its own still-bubbling click event would detach it from
+      // the DOM before that listener runs, which reads as an "outside" click
+      // and closes the panel the moment you check a box.
+      e.stopPropagation();
+      if (releaseSelected.includes(branch)) releaseSelected = releaseSelected.filter((b) => b !== branch);
+      else releaseSelected.push(branch);
+      const nowChecked = releaseSelected.includes(branch);
+      box.classList.toggle('checked', nowChecked);
+      box.setAttribute('aria-checked', String(nowChecked));
+      renderReleaseOrderList();
+    });
+    const info = document.createElement('div');
+    info.className = 'wt-page-info';
+    info.innerHTML = `<span class="wt-page-branch">${escapeHtml(branch)}</span>`;
+    row.appendChild(box);
+    row.appendChild(info);
+    releaseBranchListEl.appendChild(row);
+  }
+}
+
+function renderReleaseOrderList() {
+  releaseOrderCountEl.textContent = releaseSelected.length ? `${releaseSelected.length} selected` : '';
+  releaseBranchTriggerLabelEl.textContent = releaseSelected.length
+    ? `${releaseSelected.length} branch${releaseSelected.length === 1 ? '' : 'es'} selected`
+    : 'Select branches…';
+  updateReleaseRunButton();
+  releaseOrderListEl.innerHTML = '';
+  if (!releaseSelected.length) {
+    releaseOrderListEl.innerHTML = '<p class="hint">Select branches on the left to add them here.</p>';
+    return;
+  }
+  releaseSelected.forEach((branch, i) => {
+    const row = document.createElement('div');
+    row.className = 'wt-page-row';
+    const num = document.createElement('span');
+    num.className = 'release-order-num';
+    num.textContent = String(i + 1);
+    const info = document.createElement('div');
+    info.className = 'wt-page-info';
+    info.innerHTML = `<span class="wt-page-branch">${escapeHtml(branch)}</span>`;
+    const btns = document.createElement('div');
+    btns.className = 'release-reorder-btns';
+    const upBtn = document.createElement('button');
+    upBtn.type = 'button';
+    upBtn.textContent = '▲';
+    upBtn.setAttribute('aria-label', 'Move earlier');
+    upBtn.disabled = i === 0;
+    upBtn.addEventListener('click', () => {
+      [releaseSelected[i - 1], releaseSelected[i]] = [releaseSelected[i], releaseSelected[i - 1]];
+      renderReleaseOrderList();
+    });
+    const downBtn = document.createElement('button');
+    downBtn.type = 'button';
+    downBtn.textContent = '▼';
+    downBtn.setAttribute('aria-label', 'Move later');
+    downBtn.disabled = i === releaseSelected.length - 1;
+    downBtn.addEventListener('click', () => {
+      [releaseSelected[i + 1], releaseSelected[i]] = [releaseSelected[i], releaseSelected[i + 1]];
+      renderReleaseOrderList();
+    });
+    btns.appendChild(upBtn);
+    btns.appendChild(downBtn);
+    const actions = document.createElement('div');
+    actions.className = 'wt-page-actions';
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'ghost-btn';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      releaseSelected = releaseSelected.filter((b) => b !== branch);
+      renderReleaseBranchList();
+      renderReleaseOrderList();
+    });
+    actions.appendChild(removeBtn);
+    row.appendChild(num);
+    row.appendChild(info);
+    row.appendChild(btns);
+    row.appendChild(actions);
+    releaseOrderListEl.appendChild(row);
+  });
+}
+
+releaseDestSelectEl.addEventListener('change', () => {
+  const creating = releaseDestSelectEl.value === '__new__';
+  releaseDestNewInput.classList.toggle('hidden', !creating);
+  if (creating) releaseDestNewInput.focus();
+  renderReleaseBranchList(); // the chosen destination drops out of the source picker
+  updateReleaseRunButton();
+});
+releaseDestNewInput.addEventListener('input', updateReleaseRunButton);
+releaseBranchFilterInput.addEventListener('input', renderReleaseBranchList);
+
+// Collapsed-by-default multi-select: a trigger button opens a panel with the
+// filter + checkbox list; any outside click closes it. Needed since the
+// branch list can run to 1000+ entries — always-expanded would swamp the page.
+releaseBranchTriggerBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const opening = releaseBranchPanelEl.classList.contains('hidden');
+  releaseBranchPanelEl.classList.toggle('hidden', !opening);
+  if (opening) releaseBranchFilterInput.focus();
+});
+document.addEventListener('click', (e) => {
+  if (!releaseMsEl.contains(e.target)) releaseBranchPanelEl.classList.add('hidden');
+});
+
+releaseRunBtn.addEventListener('click', async () => {
+  const destBranch = releaseDestValue();
+  if (!destBranch || !releaseSelected.length) return;
+  releaseRunBtn.disabled = true;
+  releaseRunStatusEl.textContent = 'Starting…';
+  try {
+    const res = await fetch('/api/releases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destBranch, sourceBranches: releaseSelected }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not start the release run.');
+    releaseRunStatusEl.textContent = '';
+    openReleaseRun(data.id);
+  } catch (err) {
+    releaseRunStatusEl.textContent = err.message;
+    releaseRunBtn.disabled = false;
+  }
+});
+
+function openReleaseRun(id) {
+  releaseCurrentId = id;
+  releaseLogEntries = [];
+  releasePickerViewEl.classList.add('hidden');
+  releaseRunViewEl.classList.remove('hidden');
+  releaseLogEl.innerHTML = '';
+  releaseLogCountEl.textContent = '';
+  releaseResultsEl.innerHTML = '';
+  releasePushBarEl.classList.add('hidden');
+  releasePushErrorEl.classList.add('hidden');
+  releasePushBtn.classList.remove('hidden');
+  releaseDiscardBtn.classList.remove('hidden');
+  releaseNewBtn.classList.add('hidden');
+  subscribeToRelease(id);
+}
+
+function appendReleaseLogLine(entry) {
+  const row = document.createElement('div');
+  row.className = 'log-line-row';
+  const time = new Date(entry.ts).toLocaleTimeString([], { hour12: false });
+  row.innerHTML = `<span class="log-ts">${time}</span><span class="log-text">${escapeHtml(entry.text)}</span>`;
+  releaseLogEl.appendChild(row);
+  releaseLogEl.scrollTop = releaseLogEl.scrollHeight;
+}
+
+function subscribeToRelease(id) {
+  if (releaseEventSource) releaseEventSource.close();
+  const es = new EventSource(`/api/releases/${id}/stream`);
+  releaseEventSource = es;
+
+  es.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.kind === 'log') {
+      releaseLogEntries.push(msg.entry);
+      appendReleaseLogLine(msg.entry);
+      releaseLogCountEl.textContent = `${releaseLogEntries.length} events`;
+      return;
+    }
+
+    const snap = msg.task;
+    if (msg.kind === 'snapshot' && Array.isArray(snap.log)) {
+      releaseLogEntries = snap.log;
+      releaseLogEl.innerHTML = '';
+      releaseLogEntries.forEach(appendReleaseLogLine);
+      releaseLogCountEl.textContent = `${releaseLogEntries.length} events`;
+    }
+
+    paintRelease(snap);
+    if (RELEASE_TERMINAL.has(snap.status)) {
+      es.close();
+      if (releaseEventSource === es) releaseEventSource = null;
+    }
+  };
+
+  es.onerror = () => {
+    /* the browser retries automatically; a fresh snapshot follows on reconnect */
+  };
+}
+
+function paintRelease(snap) {
+  const [label, cls] = RELEASE_JOB_META[snap.status] || ['Running', 'pill-running'];
+  releaseStatusPillEl.textContent = label;
+  releaseStatusPillEl.className = `pill ${cls}`;
+
+  releaseResultsEl.innerHTML = '';
+  for (const r of snap.results || []) {
+    const row = document.createElement('div');
+    row.className = 'wt-page-row';
+    const [rLabel, rCls] = RELEASE_RESULT_META[r.status] || ['Queued', 'pill-idle'];
+    const filesHtml =
+      r.files && r.files.length
+        ? `<div class="release-result-files">${r.files
+            .map((f) => `<span class="badge badge-muted">${escapeHtml(f)}</span>`)
+            .join('')}</div>`
+        : '';
+    row.innerHTML = `
+      <div class="wt-page-info">
+        <div class="wt-page-top">
+          <span class="wt-page-branch">${escapeHtml(r.branch)}</span>
+          <span class="pill ${rCls}">${rLabel}</span>
+        </div>
+        ${filesHtml}
+      </div>`;
+    releaseResultsEl.appendChild(row);
+  }
+
+  if (snap.status === 'awaiting-push') {
+    const merged = (snap.results || []).filter((r) => r.status === 'merged').length;
+    const total = (snap.results || []).length;
+    releasePushSummaryEl.textContent = `${merged} of ${total} branch${total === 1 ? '' : 'es'} merged cleanly — ready to push to origin/${snap.destBranch}.`;
+    releasePushBarEl.classList.remove('hidden');
+  } else if (snap.status === 'done') {
+    releasePushSummaryEl.textContent = `Pushed to origin/${snap.destBranch}.`;
+    releasePushBarEl.classList.remove('hidden');
+    releasePushBtn.classList.add('hidden');
+    releaseDiscardBtn.classList.add('hidden');
+    releaseNewBtn.classList.remove('hidden');
+  } else if (snap.status === 'no-changes' || snap.status === 'cancelled' || snap.status === 'error') {
+    releasePushSummaryEl.textContent =
+      snap.status === 'no-changes'
+        ? 'No branches merged cleanly — nothing to push.'
+        : snap.status === 'cancelled'
+          ? 'Release run discarded.'
+          : snap.error || 'The release run failed.';
+    releasePushBarEl.classList.remove('hidden');
+    releasePushBtn.classList.add('hidden');
+    releaseDiscardBtn.classList.add('hidden');
+    releaseNewBtn.classList.remove('hidden');
+  } else {
+    releasePushBarEl.classList.add('hidden');
+  }
+}
+
+releasePushBtn.addEventListener('click', async () => {
+  if (!releaseCurrentId) return;
+  releasePushBtn.disabled = true;
+  releasePushErrorEl.classList.add('hidden');
+  try {
+    const res = await fetch(`/api/releases/${releaseCurrentId}/push`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      releasePushErrorEl.textContent = data.error || 'Push failed.';
+      releasePushErrorEl.classList.remove('hidden');
+      return;
+    }
+    paintRelease(data);
+  } catch (err) {
+    releasePushErrorEl.textContent = err.message;
+    releasePushErrorEl.classList.remove('hidden');
+  } finally {
+    releasePushBtn.disabled = false;
+  }
+});
+
+releaseDiscardBtn.addEventListener('click', async () => {
+  if (!releaseCurrentId) return;
+  if (!confirm('Discard this release run? Nothing will be pushed, and the scratch worktree will be removed.')) return;
+  releaseDiscardBtn.disabled = true;
+  try {
+    await fetch(`/api/releases/${releaseCurrentId}/discard`, { method: 'POST' });
+    // The discard itself streams a 'cancelled' update through the open SSE
+    // connection, which paintRelease renders.
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    releaseDiscardBtn.disabled = false;
+  }
+});
+
+releaseNewBtn.addEventListener('click', () => {
+  if (releaseEventSource) {
+    releaseEventSource.close();
+    releaseEventSource = null;
+  }
+  releaseCurrentId = null;
+  loadReleasePage();
+});
 
 // ================= Command palette ==========================================
 

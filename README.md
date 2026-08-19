@@ -3,8 +3,14 @@
 Graft is a local dashboard: it shows the Jira tickets assigned to you, and for
 any of them, has Claude Code draft an implementation plan, wait for your
 approval, then implement it on its own branch — with live progress you can
-watch. Nothing is committed or pushed automatically; you review the diff and
-commit yourself when you're happy.
+watch. Ticket implementation never commits or pushes on its own; you review
+the diff and commit yourself when you're happy.
+
+It also has a **Release** tool: pick a destination branch and an ordered list
+of source branches, and it merges them in one at a time — each merge sees the
+result of the one before it, not a stale snapshot — skipping and reporting
+any that conflict instead of guessing. This is the one part of Graft that
+does push to your remote, and only when you explicitly ask it to.
 
 It runs entirely on your machine. There's no cloud backend and no separate
 service to deploy — the Node server on your laptop talks to Jira's API, your
@@ -24,6 +30,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout.
 - [One-time setup](#one-time-setup)
 - [Running it](#running-it)
 - [How runs are isolated](#how-runs-are-isolated)
+- [Releasing: merging branches into a release branch](#releasing-merging-branches-into-a-release-branch)
 - [Notifications](#notifications-both-optional)
 - [Verification commands](#verification-commands)
 - [Important limitations, on purpose](#important-limitations-on-purpose)
@@ -151,6 +158,43 @@ is linked (junction/symlink) from your main checkout to make lint/test commands
 work immediately. If a ticket changes `package.json` or a lockfile, the run says
 so — install inside that worktree before trusting its test results.
 
+## Releasing: merging branches into a release branch
+
+The **Release** tab handles the "merge a batch of finished ticket branches
+into a release branch" step that normally means rebasing everything against
+the same snapshot and then discovering conflicts one at a time, deep inside a
+Bitbucket/GitHub merge screen, with no idea up front which branch will cause
+one.
+
+1. Pick a **destination branch** from the dropdown — or **+ Create a new
+   branch…** if this sprint's release branch doesn't exist yet (it's created
+   from your configured base branch).
+2. Pick **source branches** from the list — read live from your Git remote
+   (`git ls-remote`, no local fetch required), so it always reflects what's
+   actually on the remote right now — and put them in the order you want
+   them merged.
+3. Click **Run release**. Graft merges them into the destination **one at a
+   time, in a throwaway worktree** — so each merge sees the *result* of the
+   one before it, not a stale snapshot. That's the actual fix for the classic
+   failure mode: rebasing every branch against the same starting point only
+   guarantees the *first* one merges cleanly, not the rest.
+4. A branch that conflicts is aborted and skipped, not resolved automatically
+   — only a human should decide which side of a real conflict wins — and
+   reported with the exact files involved. The rest still merge.
+5. Once merging finishes, review the per-branch results, then **Push to
+   origin** as a separate, explicit step. Nothing reaches your remote until
+   you click it — or **Discard** to walk away without pushing anything.
+
+Two things worth knowing:
+
+- **This does push for real.** Unlike ticket implementation, a release push
+  updates `origin/<destination branch>` on your actual remote. Review the
+  results before clicking Push.
+- **Protected branches still apply.** If your remote rejects direct pushes to
+  the destination branch (e.g. a Bitbucket/GitHub rule requiring merges via
+  pull request), Graft shows that rejection verbatim rather than failing
+  silently — it can't override a server-side permission.
+
 ## Notifications (both optional)
 
 - **Desktop notifications** — browser/OS notification when a plan needs approval
@@ -175,9 +219,13 @@ a second command is rejected.
   can't be predicted upfront. The progress bar reflects turns used against the
   turn budget, not time-to-completion — treat it as "how much of its budget
   it's used," not "% done."
-- **No auto-commit, no auto-push.** This is enforced by never granting the
-  `Bash(git commit*)` / `Bash(git push*)` patterns in `--allowedTools` inside
-  `lib/claudeRunner.js`. Don't add them unless you actually want that.
+- **No auto-commit, no auto-push — for ticket implementation.** This is
+  enforced by never granting the `Bash(git commit*)` / `Bash(git push*)`
+  patterns in `--allowedTools` inside `lib/claudeRunner.js`. Don't add them
+  unless you actually want that. The one deliberate exception is the
+  [Release tool](#releasing-merging-branches-into-a-release-branch)'s
+  explicit **Push to origin** button — a separate code path, not something
+  Claude ever does on its own.
 - **Nothing is cleaned up for you.** Branches and worktrees stay until you
   remove them. That's deliberate — the alternative is deleting work you hadn't
   finished reviewing.
@@ -198,6 +246,12 @@ Safe to do any time, running or not. Settings are read as
 `{ ...defaults, ...whatever's saved }`, so a config file from an older version
 of this tool just picks up new settings at their default — nothing is lost,
 nothing needs migrating by hand.
+
+**Restart after pulling.** `public/*` (HTML/CSS/JS) is served fresh on every
+request, so frontend changes show up on your next page reload with no
+restart needed. `server.js` and everything under `lib/` are only read once,
+at process startup, though — if an update touches either, a running instance
+keeps serving the old routes/logic until you stop and re-run `npm start`.
 
 ## Platform notes
 

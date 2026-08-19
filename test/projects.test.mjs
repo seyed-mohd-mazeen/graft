@@ -103,6 +103,41 @@ test('listBranches lists local and remote-tracking branches, deduped', async () 
   }
 });
 
+test('listRemoteBranches lists branches that exist on origin right now, read live', async () => {
+  const { root, repo, git } = await makeFixture();
+  try {
+    await git(['branch', 'develop']);
+    await git(['remote', 'add', 'origin', repo]);
+    // Deliberately no `git fetch` here — listRemoteBranches must not depend on
+    // anything already fetched locally, only on `git ls-remote` against origin.
+    const branches = await projects.listRemoteBranches(repo);
+    assert.deepEqual(branches, ['develop', 'feature/x/ABC-1', 'trunk']);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('listRemoteBranches returns an empty list when there is no origin remote', async () => {
+  const { root, repo } = await makeFixture();
+  try {
+    assert.deepEqual(await projects.listRemoteBranches(repo), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('listRemoteBranches surfaces a real ls-remote failure instead of silently returning an empty list', async () => {
+  const { root, repo, git } = await makeFixture();
+  try {
+    // A configured but unreachable origin — the auth/network failures this
+    // matters for in practice, without needing real network access to trigger.
+    await git(['remote', 'add', 'origin', 'https://example.invalid/nope.git']);
+    await assert.rejects(() => projects.listRemoteBranches(repo));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('listBranches returns an empty list for something that is not a repo', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ticket-runner-norepo-'));
   try {
