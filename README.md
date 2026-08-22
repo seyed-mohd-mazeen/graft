@@ -1,23 +1,69 @@
 # Graft
 
+**Turn your Jira tickets into reviewed, branch-isolated Claude Code
+implementations — entirely on your machine.**
+
+[![CI](https://github.com/seyed-mohd-mazeen/graft/actions/workflows/test.yml/badge.svg)](https://github.com/seyed-mohd-mazeen/graft/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#platform-notes)
+
+![Graft's board — tickets grouped by what needs your attention](docs/screenshots/board-list.png)
+
 Graft is a local dashboard: it shows the Jira tickets assigned to you, and for
 any of them, has Claude Code draft an implementation plan, wait for your
 approval, then implement it on its own branch — with live progress you can
 watch. Ticket implementation never commits or pushes on its own; you review
 the diff and commit yourself when you're happy.
 
-It also has a **Release** tool: pick a destination branch and an ordered list
-of source branches, and it merges them in one at a time — each merge sees the
-result of the one before it, not a stale snapshot — skipping and reporting
-any that conflict instead of guessing. This is the one part of Graft that
-does push to your remote, and only when you explicitly ask it to.
-
 It runs entirely on your machine. There's no cloud backend and no separate
 service to deploy — the Node server on your laptop talks to Jira's API, your
 local git repo, and your local `claude` CLI, using your existing Claude
 subscription rather than API credits.
 
-![Graft's board — tickets grouped by what needs your attention](docs/screenshots/board-list.png)
+## Quickstart
+
+```bash
+git clone https://github.com/seyed-mohd-mazeen/graft.git
+cd graft
+npm install
+cp .env.example .env
+npm start
+```
+
+Open http://localhost:4177. The console prints a setup check on startup —
+see [One-time setup](#one-time-setup) below for the full walkthrough (Jira
+token, repo path, Claude Code login).
+
+|                        |                         |                       |
+| :--------------------: | :---------------------: | :-------------------: |
+| ![Ticket](docs/screenshots/ticket-drawer.png) | ![Plan](docs/screenshots/plan-approval.png) | ![Diff](docs/screenshots/diff-review.png) |
+| Open a ticket, see its full description | Approve the plan before anything is written | Review a real diff when it's done |
+
+## Why I built this
+
+Handing an agent your actual working tree is asking for trouble — two runs
+racing on the same checkout can move each other's `HEAD`, and a diff computed
+against a tree something else is still editing isn't a diff you can trust.
+That's why every run gets its own git worktree: nothing Graft does can
+collide with another run or with your own uncommitted work.
+
+The release side has a less obvious failure mode. The instinctive fix for
+"merge these ten branches into a release branch" is to rebase every one of
+them against the same base commit — but that only guarantees the *first*
+branch merges cleanly. Branch two might conflict with branch one's changes,
+and you don't find out until you're deep in a merge screen with no idea which
+branch is actually the problem. Graft merges sequentially instead, each one
+in a throwaway worktree that carries forward the result of the merge before
+it, and it reports a conflict rather than guessing how to resolve it —
+that's a call only a human should make.
+
+And safety isn't something Claude is asked nicely to respect — it's enforced
+at the tool layer. `git commit` and `git push` are never granted in
+`--allowedTools` when Claude implements a ticket, so there's nothing for a
+prompt to talk it out of. The one exception is the Release tool's push,
+which is a separate code path you trigger explicitly, not something Claude
+ever decides to do on its own.
 
 **Stack, for developers sizing up the code before diving in:** a Node.js +
 Express backend with no database (state is flat JSON under `data/`), and a
@@ -26,6 +72,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout.
 
 ## Contents
 
+- [Quickstart](#quickstart)
+- [Why I built this](#why-i-built-this)
 - [How it works, in short](#how-it-works-in-short)
 - [One-time setup](#one-time-setup)
 - [Running it](#running-it)
