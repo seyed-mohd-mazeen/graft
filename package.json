@@ -1,6 +1,6 @@
 {
   "name": "graft",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Graft — local dashboard: view your assigned Jira tickets and have Claude Code draft an implementation on a branch.",
   "main": "server.js",
   "type": "commonjs",
@@ -8,12 +8,12 @@
   "author": "Seyed Mohamed Mazeen",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seyed-mohd-mazeen/ticket-runner.git"
+    "url": "git+https://github.com/seyed-mohd-mazeen/graft.git"
   },
   "bugs": {
-    "url": "https://github.com/seyed-mohd-mazeen/ticket-runner/issues"
+    "url": "https://github.com/seyed-mohd-mazeen/graft/issues"
   },
-  "homepage": "https://github.com/seyed-mohd-mazeen/ticket-runner#readme",
+  "homepage": "https://github.com/seyed-mohd-mazeen/graft#readme",
   "scripts": {
     "start": "node server.js",
     "test": "node --test"
